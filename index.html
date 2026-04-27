@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Document Search</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        .search-box { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; box-sizing: border-box; }
+        .result-card { border: 1px solid #e0e0e0; padding: 15px; margin-bottom: 15px; border-radius: 5px; background-color: #fafafa; }
+        .result-title { font-size: 18px; color: #0056b3; text-decoration: none; font-weight: bold; }
+        .result-title:hover { text-decoration: underline; }
+        .result-meta { font-size: 12px; color: #666; margin: 5px 0; font-weight: bold; }
+        .result-desc { font-size: 14px; color: #333; }
+        #no-results { display: none; color: red; text-align: center; }
+        #loading { text-align: center; color: #666; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Team Document Search</h1>
+    <input type="text" id="searchInput" class="search-box" placeholder="Search for keywords (e.g., Vob corruption)..." onkeyup="searchDocs()">
+    
+    <p id="loading">Loading documents...</p>
+    <div id="results"></div>
+    <p id="no-results">No documents found matching your search.</p>
+</div>
+
+<script>
+    // PASTE YOUR SHEET ID HERE:
+    const sheetId = '1It9Y2DqfHwaiLurhyfBQcIyQ5CViYa4uGOK2u-T5BXU'; 
+    
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+    let documents = [];
+
+    // Fetch the data from Google Sheets when the page loads
+    fetch(sheetUrl)
+        .then(response => response.text())
+        .then(data => {
+            // Google returns a slightly weird format, this cleans it up into pure JSON
+            const jsonString = data.substring(47).slice(0, -2);
+            const jsonData = JSON.parse(jsonString);
+            
+            // Map the Google Sheet rows into our document list
+            // Assuming: Col A (0) = Doc ID, Col B (1) = Title, Col C (2) = Link, Col D (3) = Description
+            documents = jsonData.table.rows.map(row => {
+                return {
+                    docId: row.c[0] ? row.c[0].v : '',
+                    title: row.c[1] ? row.c[1].v : '',
+                    link: row.c[2] ? row.c[2].v : '',
+                    description: row.c[3] ? row.c[3].v : ''
+                };
+            });
+
+            // Hide the loading message once data is ready
+            document.getElementById('loading').style.display = 'none';
+        })
+        .catch(error => {
+            console.error('Error loading documents:', error);
+            document.getElementById('loading').innerText = "Error loading data. Check your Sheet ID and permissions.";
+        });
+
+    // Search function triggered every time a user types in the box
+    function searchDocs() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const resultsContainer = document.getElementById('results');
+        const noResultsMsg = document.getElementById('no-results');
+        
+        // Clear previous results
+        resultsContainer.innerHTML = '';
+
+        if (query.trim() === '') {
+            noResultsMsg.style.display = 'none';
+            return;
+        }
+
+        // Filter documents based on the search query
+        const filteredDocs = documents.filter(doc => 
+            (doc.title && doc.title.toLowerCase().includes(query)) || 
+            (doc.description && doc.description.toLowerCase().includes(query)) || 
+            (doc.docId && doc.docId.toLowerCase().includes(query))
+        );
+
+        // Display results
+        if (filteredDocs.length > 0) {
+            noResultsMsg.style.display = 'none';
+            filteredDocs.forEach(doc => {
+                const docElement = document.createElement('div');
+                docElement.classList.add('result-card');
+                docElement.innerHTML = `
+                    <a href="${doc.link}" target="_blank" class="result-title">${doc.title}</a>
+                    <div class="result-meta">Doc ID: ${doc.docId}</div>
+                    <div class="result-desc">${doc.description}</div>
+                `;
+                resultsContainer.appendChild(docElement);
+            });
+        } else {
+            noResultsMsg.style.display = 'block';
+        }
+    }
+</script>
+
+</body>
+</html>
