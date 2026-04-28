@@ -22,15 +22,15 @@
 
 <div class="container">
     <h1>Team Document Search</h1>
-    <input type="text" id="searchInput" class="search-box" placeholder="Search for keywords (e.g., Vob corruption)..." onkeyup="searchDocs()">
+    <input type="text" id="searchInput" class="search-box" placeholder="Search for keywords (e.g., Trouble opening VOB)..." onkeyup="searchDocs()">
     
-    <p id="loading">Loading documents...</p>
+    <p id="loading">Loading documents from Google Sheets...</p>
     <div id="results"></div>
     <p id="no-results">No documents found matching your search.</p>
 </div>
 
 <script>
-    // PASTE YOUR SHEET ID HERE:
+    // ⚠️ PASTE YOUR SHEET ID HERE:
     const sheetId = '1BmDtiQz_rZYYZISkNieSec2ZfFaTg2Ka8y7YhraZwtI'; 
     
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
@@ -40,12 +40,9 @@
     fetch(sheetUrl)
         .then(response => response.text())
         .then(data => {
-            // Google returns a slightly weird format, this cleans it up into pure JSON
             const jsonString = data.substring(47).slice(0, -2);
             const jsonData = JSON.parse(jsonString);
             
-            // Map the Google Sheet rows into our document list
-            // Assuming: Col A (0) = Doc ID, Col B (1) = Title, Col C (2) = Link, Col D (3) = Description
             documents = jsonData.table.rows.map(row => {
                 return {
                     docId: row.c[0] ? row.c[0].v : '',
@@ -55,7 +52,6 @@
                 };
             });
 
-            // Hide the loading message once data is ready
             document.getElementById('loading').style.display = 'none';
         })
         .catch(error => {
@@ -63,28 +59,30 @@
             document.getElementById('loading').innerText = "Error loading data. Check your Sheet ID and permissions.";
         });
 
-    // Search function triggered every time a user types in the box
+    // Upgraded Smart Keyword Search
     function searchDocs() {
-        const query = document.getElementById('searchInput').value.toLowerCase();
+        const query = document.getElementById('searchInput').value.toLowerCase().trim();
         const resultsContainer = document.getElementById('results');
         const noResultsMsg = document.getElementById('no-results');
         
-        // Clear previous results
         resultsContainer.innerHTML = '';
 
-        if (query.trim() === '') {
+        if (query === '') {
             noResultsMsg.style.display = 'none';
             return;
         }
 
-        // Filter documents based on the search query
-        const filteredDocs = documents.filter(doc => 
-            (doc.title && doc.title.toLowerCase().includes(query)) || 
-            (doc.description && doc.description.toLowerCase().includes(query)) || 
-            (doc.docId && doc.docId.toLowerCase().includes(query))
-        );
+        // Split the user's search into individual keywords (ignoring extra spaces)
+        const keywords = query.split(/\s+/);
 
-        // Display results
+        const filteredDocs = documents.filter(doc => {
+            // Combine Title, Description, and Doc ID into one giant searchable string
+            const combinedText = `${doc.title} ${doc.description} ${doc.docId}`.toLowerCase();
+            
+            // Check if ALL of the typed keywords exist SOMEWHERE in this combined string
+            return keywords.every(keyword => combinedText.includes(keyword));
+        });
+
         if (filteredDocs.length > 0) {
             noResultsMsg.style.display = 'none';
             filteredDocs.forEach(doc => {
